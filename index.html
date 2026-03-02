@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>LOTO Program Assessment</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://unpkg.com/docx@8.2.2/build/index.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Barlow','Segoe UI',sans-serif;background:#F0F2F5;color:#1A1A2E;-webkit-text-size-adjust:100%}
+textarea,input{font-family:'Barlow','Segoe UI',sans-serif}
+input[type="checkbox"]{width:18px;height:18px;cursor:pointer;accent-color:#2E75B6}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+.toast{position:fixed;bottom:20px;right:20px;padding:10px 20px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);color:#FFF}
+.toast.show{opacity:1}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-box{background:#FFF;border-radius:12px;padding:24px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;color:#1B3A5C;margin-bottom:12px}
+.modal-text{font-size:14px;line-height:1.6;color:#5A6577;margin-bottom:20px}
+.modal-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.modal-btn{padding:8px 20px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px;cursor:pointer;border:none}
+.modal-btn.cancel{background:#E5E7EB;color:#5A6577}.modal-btn.confirm{background:#2E75B6;color:#FFF}.modal-btn.danger{background:#C0392B;color:#FFF}
+.tb{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#FFF;transition:background 0.2s;white-space:nowrap}
+.tb:hover{background:rgba(255,255,255,0.2)}.tb.dng{border-color:rgba(192,57,43,0.5);color:#F5A5A5}.tb.dng:hover{background:rgba(192,57,43,0.3)}
+@media(max-width:768px){.cit{font-size:12px!important}.cref{font-size:10px!important;min-width:70px!important}.ig{flex-direction:column!important}.ig>div{flex:1 1 100%!important}.tbw{flex-wrap:wrap!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast" class="toast" style="background:#2D8B4E"></div>
+<input type="file" id="file-restore" accept=".json" style="display:none">
+<script type="text/babel">
+const {useState,useCallback,useMemo,useEffect,useRef} = React;
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+const SK = "loto_assessment_v2";
+function toast(msg,color){const el=document.getElementById("toast");if(el){el.textContent=msg;el.style.background=color||"#2D8B4E";el.classList.add("show");setTimeout(()=>el.classList.remove("show"),1500);}}
+function save(state){try{localStorage.setItem(SK,JSON.stringify(state));toast("✓ Saved","#2D8B4E");}catch(e){console.warn("Save failed:",e);}}
+function load(){try{const r=localStorage.getItem(SK);if(r)return JSON.parse(r);}catch(e){}return null;}
+function dlFile(content,fn,type){const b=new Blob([content],{type});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
+function dlBlob(blob,fn){const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
+
+// ============================================================
+// DATA DEFINITIONS
+// ============================================================
+const SD = {
+s2a:{t:"2A. Policy Content & Regulatory Compliance",i:[
+{x:"Review MCP/SOP for deficiencies from or omissions of regulatory requirements",r:"SOW §II.A.1(a); 29 CFR 1910.147"},
+{x:"Check for recently published regulation/standard changes not yet incorporated",r:"SOW §II.A.1(b)"},
+{x:"Verify policy covers all required definitions per 29 CFR 1910.147(b)",r:"29 CFR 1910.147(b)"},
+{x:"Verify policy includes purpose and scope of the energy control program",r:"29 CFR 1910.147(c)(1)"},
+{x:"Verify policy addresses all energy types (electrical, mechanical, hydraulic, pneumatic, chemical, thermal, stored)",r:"29 CFR 1910.147(c)(4)"},
+]},
+s2b:{t:"2B. Roles & Responsibilities",i:[
+{x:"Verify roles/responsibilities match actual conditions (Safety Mgr, Supervisors, etc.)",r:"Bedford Finding"},
+{x:"Confirm roles for Leadership, Project Engineers, CORs, and non-FMS staff",r:"Bedford Finding"},
+{x:"Verify Authorized Employee roles/responsibilities are accurately defined",r:"29 CFR 1910.147(b)"},
+{x:"Verify Affected Employee roles/responsibilities are accurately defined",r:"29 CFR 1910.147(b)"},
+{x:"Check if Maintenance Personnel and Authorized Employee roles are distinct or need consolidation",r:"Bedford Finding"},
+{x:"Verify Health & Safety Committee LOTO oversight role is appropriate",r:"VHA Directive 7701"},
+]},
+s2c:{t:"2C. Group LOTO & Shift Change Requirements",i:[
+{x:"Verify policy addresses group LOTO with Primary Authorized Employee roles",r:"29 CFR 1910.147(f)(3); CPL 02-00-147 Ch.4"},
+{x:"Verify zero-energy verification requirements during group LOTO events",r:"29 CFR 1910.147(f)(3)"},
+{x:"Verify shift-change procedures for multi-shift LOTO continuity",r:"29 CFR 1910.147(f)(3)(i)"},
+{x:"Verify lock box procedures (if used) maintain positive control of keys",r:"29 CFR 1910.147(c)(5)"},
+]},
+s2d:{t:"2D. Contractor LOTO Requirements",i:[
+{x:"Verify policy addresses mutual exchange of LOTO information between VA and contractors",r:"29 CFR 1910.147(f)(2)"},
+{x:"Confirm policy specifies who reviews/approves contractor LOTO devices",r:"Bedford Finding"},
+{x:"Verify policy clearly assigns responsibility for contractor LOTO procedure generation",r:"29 CFR 1910.147(f)(2)(i)"},
+{x:"Check for contradictions between contractor requirements sections",r:"Bedford Finding"},
+]},
+s2e:{t:"2E. Training & Periodic Inspection Provisions",i:[
+{x:"Verify policy specifies retraining triggers (job change, machine change, procedure change, inspection findings)",r:"29 CFR 1910.147(c)(7)(iii)"},
+{x:"Verify policy defines periodic inspection requirements and frequency",r:"29 CFR 1910.147(c)(6)"},
+{x:"Check that periodic inspection language reflects verification, not training",r:"Bedford BMP"},
+{x:"Verify policy specifies when equipment-specific LOTO procedures are required",r:"29 CFR 1910.147(c)(4)(i)"},
+{x:"Check for LOTO log requirements at shop level",r:"Bedford BMP"},
+]},
+s2f:{t:"2F. Administrative Items",i:[
+{x:"Verify personnel titles match actual positions at the facility",r:"Bedford BMP"},
+{x:"Check for signature block from Medical Center Director or designee",r:"Bedford BMP"},
+{x:"Verify policy has been disseminated to all applicable staff",r:"29 CFR 1910.147(c)(1)"},
+{x:"Note effective date and last revision date of policy",r:"General"},
+]},
+s3:{t:"Inventory & Document Control",i:[
+{x:"Review LOTO procedures inventory spreadsheet for completeness",r:"SOW §II.B.1"},
+{x:"Verify only one protected and current master procedure exists per equipment",r:"SOW §II.B.1(a)"},
+{x:"Confirm superseded/expired procedure files are deleted or overwritten",r:"SOW §II.B.1(b)"},
+{x:"Verify procedure files are linked to the digital inventory spreadsheet",r:"SOW §II.B.1(c)"},
+{x:"Check for unauthorized or superseded copies of procedures",r:"SOW §II.B.2"},
+{x:"Verify editable versions of procedures are available to responsible shop staff",r:"Bedford Finding"},
+{x:"Verify electronic copies stored on SharePoint/shared drive are accessible and current",r:"Manchester Finding"},
+{x:"Check that shop-specific procedure binders are maintained and current",r:"Manchester Positive"},
+{x:"Verify procedures conform to VISN 1 required format",r:"SOW §IV.B"},
+]},
+s4a:{t:"4A. Required Equipment Sampling per SOW",i:[
+{x:"All high-pressure boilers per VHA Directive 1810",r:"SOW §II.C.1(a)(1)"},
+{x:"Two (2) different types of steam powered/control devices",r:"SOW §II.C.1(a)(2)"},
+{x:"Two (2) different types of equipment using 480 VAC or more",r:"SOW §II.C.1(a)(3)"},
+{x:"One (1) piece of equipment using 50 VDC or more",r:"SOW §II.C.1(a)(4)"},
+{x:"Two (2) different types of air handlers",r:"SOW §II.C.1(a)(5)"},
+{x:"Two (2) heavy equipment vehicles using hydraulics",r:"SOW §II.C.1(a)(6)"},
+{x:"One (1) overhead power rolling vehicle bay door",r:"SOW §II.C.1(a)(7)"},
+{x:"One (1) vehicle lift (motor pool)",r:"SOW §II.C.1(a)(8)"},
+{x:"Two (2) biomedical engineering lockout procedures",r:"SOW §II.C.1(a)(9)"},
+{x:"All tagout procedures",r:"SOW §II.C.1(a)(10)"},
+{x:"Any equipment with a near miss in the past 12 months",r:"SOW §II.C.1(a)(11)"},
+{x:"Two (2) random procedures from each shop",r:"SOW §II.C.1(a)(12)"},
+]},
+s5:{t:"Training Audit",i:[
+{x:"Obtain lists of all authorized employees and their LOTO training records",r:"SOW §II.E.1"},
+{x:"Obtain lists of all affected employees and their LOTO training records",r:"SOW §II.E.1"},
+{x:"Examine training records for compliance with 29 CFR 1910.147(c)(7)",r:"SOW §II.E.2"},
+{x:"Verify all authorized employees have received initial LOTO classroom training",r:"29 CFR 1910.147(c)(7)(i)"},
+{x:"Verify authorized employees have received hands-on LOTO training (not just TMS/virtual)",r:"CPL 02-00-147 Ch.3 §IV"},
+{x:"Verify training addresses: (1) purpose/function of ECP, (2) elements of procedures, (3) pertinent requirements of standard",r:"29 CFR 1910.147(c)(7)(i)"},
+{x:"Verify retraining has occurred when triggered (job change, equipment change, inspection findings)",r:"29 CFR 1910.147(c)(7)(iii)"},
+{x:"Identify any personnel performing LOTO without documented training",r:"Bedford Finding"},
+{x:"Verify affected employees have received initial/refresher training",r:"29 CFR 1910.147(c)(7)(i)"},
+{x:"Check training dates \u2013 identify personnel overdue for refresher training",r:"VISN 1 SOP"},
+]},
+s6a:{t:"6A. Personnel & Documentation",i:[
+{x:"Does the shop maintain a current list of all authorized LOTO personnel?",r:"Interview"},
+{x:"Who is responsible for maintaining and updating LOTO procedures at the shop level?",r:"Interview"},
+{x:"What is the process for generating new LOTO procedures when new equipment is installed or modified?",r:"Interview"},
+{x:"How are shop personnel trained/notified when procedures are updated?",r:"Interview"},
+{x:"Does the shop LOTO binder cover all equipment requiring a LOTO procedure?",r:"Interview"},
+{x:"Are there any shop-specific LOTO SOPs that differ from the hospital-level SOP?",r:"Interview"},
+]},
+s6b:{t:"6B. Training & Competency",i:[
+{x:"Are all authorized individuals trained on all current LOTO procedures?",r:"Interview"},
+{x:"If training gaps exist, list untrained personnel and time in position",r:"Interview"},
+{x:"Do shop personnel perform verification of zero electrical energy? Qualified electrical workers?",r:"Interview"},
+{x:"If qualified electrical workers, have they received training per NFPA 70E?",r:"Interview"},
+]},
+s6c:{t:"6C. LOTO Event Tracking & Inspections",i:[
+{x:"Does the shop maintain a log of active and completed LOTO events?",r:"Interview"},
+{x:"Have all applicable procedures undergone periodic inspection within 12 months?",r:"Interview"},
+{x:"If periodic inspections were performed, who conducted them and are they documented?",r:"Interview"},
+{x:"Are periodic inspection corrective actions tracked to completion?",r:"Interview"},
+]},
+s6d:{t:"6D. Incidents & Other Concerns",i:[
+{x:"Have there been any near misses involving LOTO in the last 12 months?",r:"Interview"},
+{x:"Are there any resource needs limiting LOTO compliance?",r:"Interview"},
+{x:"Are there any other LOTO-related concerns raised by shop personnel?",r:"Interview"},
+]},
+s7a:{t:"7A. Procedure Content Verification",i:[
+{x:"Verify procedure substantially meets VISN format",r:"SOW §II.C.1(b)(1)"},
+{x:"Verify procedure contains all required information",r:"SOW §II.C.1(b)(2)"},
+{x:"Validate stored energy sources are identified",r:"SOW §II.C.1(b)(3)"},
+{x:"Validate energy magnitudes are documented",r:"SOW §II.C.1(b)(3)"},
+{x:"Validate lockout/isolation points are identified",r:"SOW §II.C.1(b)(3)"},
+{x:"Validate required lockout devices for each point are specified",r:"SOW §II.C.1(b)(3)"},
+{x:"Validate methods to verify zero-energy state are documented",r:"SOW §II.C.1(b)(3)"},
+{x:"Determine if facility conducts periodic inspections of procedures",r:"SOW §II.C.1(c)"},
+{x:"For Tagout procedures: determine modifications needed to allow Lockout",r:"SOW §II.C.1(d)"},
+{x:"Verify all energy types addressed",r:"Bedford Finding"},
+{x:"Check for ad-hoc/undocumented LOTO events",r:"Bedford Finding"},
+]},
+s7b:{t:"7B. Procedure Demonstration",i:[
+{x:"Employee obtains valid and current copy of written procedure",r:"SOW §II.D.4(a)"},
+{x:"Employee makes required notifications using effective communication",r:"SOW §II.D.4(b)"},
+{x:"Employee obtains correct LOTO devices and locks",r:"SOW §II.D.4(c)"},
+{x:"Employee obtains correct PPE and energy verification equipment",r:"SOW §II.D.4(d)"},
+{x:"Employee follows procedural steps: shutdown, deenergize, lockout, verify zero-energy",r:"SOW §II.D.4(e)"},
+{x:"Employee demonstrates positive control of padlock keys",r:"SOW §II.D.4(f)"},
+{x:"Employee correctly removes LOTO devices and reenergizes equipment",r:"SOW §II.D.4(g)"},
+{x:"Employee makes correct notifications and returns LOTO devices to storage",r:"SOW §II.D.4(h)"},
+{x:"Employee completes required documentation",r:"SOW §II.D.4(i)"},
+]},
+s7c:{t:"7C. Verbal Knowledge Assessment",i:[
+{x:"Employee describes how to perform a ganged lockout",r:"SOW §II.D.4(j)"},
+{x:"Employee describes who is allowed to forcibly remove a lockout padlock",r:"SOW §II.D.4(k)"},
+{x:"Employee describes shift-change turnover for locked-out equipment",r:"SOW §II.D.4(l)"},
+{x:"Employee confirms all authorized employees must install individual LOTO devices",r:"SOW §II.D.4(m)"},
+{x:"Employee demonstrates understanding of isolating ALL energy sources",r:"Bedford Finding"},
+{x:"Employee understands requirement to install own locks on all isolation points",r:"Bedford Finding"},
+{x:"Document best practices, errors, and procedure deficiencies",r:"SOW §II.D.5"},
+]},
+s8:{t:"Contractor LOTO Review",i:[
+{x:"Verify mutual exchange of LOTO information between VA and contractors",r:"29 CFR 1910.147(f)(2)"},
+{x:"Verify contractors install their own locks on group LOTO devices/boxes",r:"Bedford Finding"},
+{x:"Verify contractor LOTO events are documented on LOTO logs",r:"Bedford Finding"},
+{x:"Verify contractor safety submittals include LOTO program/procedures",r:"Bedford Finding"},
+{x:"Assess whether formal contractor LOTO program review is being performed",r:"Bedford/Manchester Finding"},
+{x:"Verify Project Engineers and CORs understand LOTO oversight responsibilities",r:"Bedford Finding"},
+{x:"Check if contractor LOTO device approval process is followed",r:"Bedford Finding"},
+]},
+s9:{t:"Equipment & Facility Walkthrough",i:[
+{x:"Identify equipment requiring new LOTO procedures",r:"29 CFR 1910.147(c)(4)"},
+{x:"Identify equipment requiring revised LOTO procedures",r:"29 CFR 1910.147(c)(4)"},
+{x:"Verify LOTO devices are available in sufficient quantities",r:"29 CFR 1910.147(c)(5)(i)"},
+{x:"Verify LOTO devices are appropriate for isolation point types",r:"29 CFR 1910.147(c)(5)(ii)"},
+{x:"Inspect LOTO device storage areas and key control",r:"29 CFR 1910.147(c)(5)"},
+{x:"Assess long-term LOTO key storage security",r:"Bedford Finding"},
+{x:"Check valve tags and labeling on major utility system components",r:"Manchester/Bedford BMP"},
+{x:"Check signage on steam PRV stations indicating areas served",r:"Bedford BMP"},
+{x:"Review currency of engineering drawings/as-builts",r:"Bedford BMP"},
+{x:"Assess arc-flash labeling for currency on electrical equipment",r:"Manchester Finding"},
+]},
+s10:{t:"Post-Visit Report Requirements",i:[
+{x:"Compile all deficiencies and gaps with clarifying information",r:"SOW §II.F.1(a)"},
+{x:"Document employee errors; note if corrective recommendations were provided",r:"SOW §II.F.1(b)"},
+{x:"State if errors are expected to recur by other facility employees",r:"SOW §II.F.1(b)"},
+{x:"Provide recommendations to improve the facility\u2019s LOTO system",r:"SOW §II.F.1(c)"},
+{x:"Document best practices and techniques performed exceptionally well",r:"SOW §II.F.1(d)"},
+{x:"Assign severity rating to each finding",r:"Report Standard"},
+{x:"Provide report within 14 calendar days of onsite completion",r:"SOW §II.G.2"},
+{x:"Provide report to VISN 1 Safety Manager or Capital Assets Manager",r:"SOW §II.F.2"},
+{x:"Identify non-compliant patterns not covered by BPA",r:"SOW §I.A.4"},
+{x:"Identify effective techniques not standardized in SOP or Policy",r:"SOW §I.A.4"},
+]},
+};
+
+const SHOPS=["Boiler Plant","HVAC","Plumbing","Electric","HTM"];
+let _id=Date.now();const uid=()=>"id_"+(_id++);
+const iC=ks=>{const c={};ks.forEach(k=>{SD[k].i.forEach((_,i)=>{c[k+"_"+i]=false;});});return c;};
+const iN=ks=>{const n={};ks.forEach(k=>{SD[k].i.forEach((_,i)=>{n[k+"_"+i]="";});});return n;};
+const ASK=["s2a","s2b","s2c","s2d","s2e","s2f","s3","s5","s8","s9","s10"];
+
+function buildDef(){return{
+  fac:{name:"Northampton / Central Western Mass VA",assessor:"Whitt Wilkins, CSP \u2013 HGS Engineering, Inc.",poc:"",pocPh:"",sMgr:"",sMgrPh:"",dates:""},
+  chk:iC(ASK),nts:iN(ASK),exN:{s5:"",s8:"",s9:""},
+  s4:SHOPS.map(s=>({id:uid(),inf:{shop:s,date:"",emp:"",title:"",equip:""},chk:iC(["s4a"]),nts:iN(["s4a"]),exN:""})),
+  s6:SHOPS.map(s=>({id:uid(),inf:{shop:s,date:"",nAuth:"",sup:"",gk:"",per:""},chk:iC(["s6a","s6b","s6c","s6d"]),nts:iN(["s6a","s6b","s6c","s6d"]),exN:""})),
+  s7:SHOPS.map(s=>({id:uid(),shop:s,demos:[]})),
+  os:{}
+};}
+
+// ============================================================
+// WORD EXPORT
+// ============================================================
+async function expWord(st){
+  const D=docx;const NV="1B3A5C",AC="2E75B6",LB="D6E4F0",LG="F2F2F2";
+  const b={style:D.BorderStyle.SINGLE,size:1,color:"AAAAAA"};
+  const bd={top:b,bottom:b,left:b,right:b};const cm={top:60,bottom:60,left:100,right:100};
+  const CW=10080;const cols=[550,550,4280,1900,2800];
+  function tr(text,o={}){return new D.TextRun({text,font:"Arial",size:o.size||20,bold:!!o.bold,color:o.color||"000000"});}
+  function p(text,o={}){return new D.Paragraph({alignment:o.align,spacing:o.spacing,children:[tr(text,o)]});}
+  function hc(text,w){return new D.TableCell({borders:bd,width:{size:w,type:D.WidthType.DXA},shading:{fill:NV,type:D.ShadingType.CLEAR},margins:cm,verticalAlign:D.VerticalAlign.CENTER,children:[new D.Paragraph({children:[tr(text,{bold:true,color:"FFFFFF"})]})]});}
+  function cl(text,w,o={}){const c={borders:bd,width:{size:w,type:D.WidthType.DXA},margins:cm,verticalAlign:D.VerticalAlign.CENTER,children:[new D.Paragraph({alignment:o.align,children:[tr(text,{bold:o.bold,size:o.fs,color:o.color})]})]};if(o.sh)c.shading={fill:o.sh,type:D.ShadingType.CLEAR};if(o.cs)c.columnSpan=o.cs;return new D.TableCell(c);}
+  function sr(text){return new D.TableRow({children:[new D.TableCell({borders:bd,columnSpan:cols.length,width:{size:CW,type:D.WidthType.DXA},shading:{fill:AC,type:D.ShadingType.CLEAR},margins:cm,children:[new D.Paragraph({children:[tr(text,{bold:true,color:"FFFFFF",size:22})]})]})]});}
+  function ubr(text){return new D.TableRow({children:[new D.TableCell({borders:bd,columnSpan:cols.length,width:{size:CW,type:D.WidthType.DXA},shading:{fill:LB,type:D.ShadingType.CLEAR},margins:cm,children:[new D.Paragraph({children:[tr(text,{bold:true,color:NV})]})]})]});}
+  function hr(){return new D.TableRow({tableHeader:true,children:[hc("\u2713",cols[0]),hc("#",cols[1]),hc("Checklist Item",cols[2]),hc("Reference",cols[3]),hc("Notes / Findings",cols[4])]});}
+  function ir(num,text,ref,checked,note,sh){return new D.TableRow({children:[cl(checked?"\u2611":"\u2610",cols[0],{align:D.AlignmentType.CENTER,sh}),cl(String(num),cols[1],{align:D.AlignmentType.CENTER,sh}),cl(text,cols[2],{sh}),cl(ref,cols[3],{sh,fs:18}),cl(note||"",cols[4],{sh})]});}
+  function bldRows(keys,chk,nts){const rows=[];let n=0;keys.forEach(k=>{rows.push(ubr(SD[k].t));SD[k].i.forEach((item,i)=>{const key=k+"_"+i;const sh=(++n%2===0)?LG:undefined;rows.push(ir(i+1,item.x,item.r,!!chk[key],nts[key]||"",sh));});});return rows;}
+
+  const ch=[];const f=st.fac;
+  ch.push(p("LOTO PROGRAM ASSESSMENT",{align:D.AlignmentType.CENTER,bold:true,size:40,color:NV,spacing:{after:60}}));
+  ch.push(p("FIELD DATA EXPORT",{align:D.AlignmentType.CENTER,bold:true,size:32,color:AC,spacing:{after:200}}));
+  const fc=[2500,4580,1200,1800];
+  ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:fc,rows:[
+    new D.TableRow({children:[cl("Facility:",fc[0],{bold:true,sh:LB}),cl(f.name,fc[1]),cl("Date(s):",fc[2],{bold:true,sh:LB}),cl(f.dates,fc[3])]}),
+    new D.TableRow({children:[cl("Assessor:",fc[0],{bold:true,sh:LB}),cl(f.assessor,fc[1]),cl("",fc[2],{sh:LB}),cl("",fc[3])]}),
+    new D.TableRow({children:[cl("Facility POC:",fc[0],{bold:true,sh:LB}),cl(f.poc,fc[1]),cl("Phone:",fc[2],{bold:true,sh:LB}),cl(f.pocPh,fc[3])]}),
+    new D.TableRow({children:[cl("Safety Manager:",fc[0],{bold:true,sh:LB}),cl(f.sMgr,fc[1]),cl("Phone:",fc[2],{bold:true,sh:LB}),cl(f.sMgrPh,fc[3])]}),
+  ]}));
+  ch.push(p("",{spacing:{before:200,after:100}}));
+
+  // S2
+  ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),sr("SECTION 2: MCP/SOP REVIEW"),...bldRows(["s2a","s2b","s2c","s2d","s2e","s2f"],st.chk,st.nts)]}));
+  ch.push(p("",{spacing:{before:200,after:100}}));
+  // S3
+  ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),sr("SECTION 3: INVENTORY & DOCUMENT CONTROL"),...bldRows(["s3"],st.chk,st.nts)]}));
+  ch.push(new D.Paragraph({children:[new D.PageBreak()]}));
+
+  // S4
+  st.s4.forEach(inst=>{
+    ch.push(p("SECTION 4: PROCEDURE EVALUATION \u2014 "+(inst.inf.shop||"Shop"),{bold:true,size:26,color:NV,spacing:{after:80}}));
+    ch.push(p("Equipment: "+(inst.inf.equip||"\u2014")+"  |  Employee: "+(inst.inf.emp||"\u2014")+"  |  Date: "+(inst.inf.date||"\u2014"),{size:18,color:"666666",spacing:{after:100}}));
+    ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),...bldRows(["s4a"],inst.chk,inst.nts)]}));
+    if(inst.exN)ch.push(p("Notes: "+inst.exN,{size:18,color:"444444",spacing:{before:80,after:80}}));
+    ch.push(p("",{spacing:{before:100,after:100}}));
+  });
+
+  // S5
+  ch.push(new D.Paragraph({children:[new D.PageBreak()]}));
+  ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),sr("SECTION 5: LOTO TRAINING AUDIT"),...bldRows(["s5"],st.chk,st.nts)]}));
+  if(st.exN.s5)ch.push(p("Notes: "+st.exN.s5,{size:18,color:"444444",spacing:{before:80,after:80}}));
+  ch.push(new D.Paragraph({children:[new D.PageBreak()]}));
+
+  // S6
+  st.s6.forEach(inst=>{
+    ch.push(p("SECTION 6: SHOP INTERVIEW \u2014 "+(inst.inf.shop||"Shop"),{bold:true,size:26,color:NV,spacing:{after:80}}));
+    ch.push(p("Supervisor: "+(inst.inf.sup||"\u2014")+"  |  Interviewed: "+(inst.inf.per||"\u2014"),{size:18,color:"666666",spacing:{after:100}}));
+    ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),...bldRows(["s6a","s6b","s6c","s6d"],inst.chk,inst.nts)]}));
+    if(inst.exN)ch.push(p("Notes: "+inst.exN,{size:18,color:"444444",spacing:{before:80,after:80}}));
+    ch.push(p("",{spacing:{before:100,after:100}}));
+  });
+
+  // S7
+  ch.push(new D.Paragraph({children:[new D.PageBreak()]}));
+  st.s7.forEach(inst=>{
+    ch.push(p("SECTION 7: EMPLOYEE KSA \u2014 "+(inst.shop||"Shop"),{bold:true,size:28,color:NV,spacing:{after:100}}));
+    if(!inst.demos.length){ch.push(p("No demonstrations recorded.",{size:18,color:"888888",spacing:{after:100}}));return;}
+    inst.demos.forEach((demo,di)=>{
+      ch.push(p("Demo "+(di+1)+": "+(demo.inf.equip||"Equipment")+" \u2014 "+(demo.inf.emp||"Employee"),{bold:true,size:22,color:AC,spacing:{after:60}}));
+      ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),...bldRows(["s7a","s7b","s7c"],demo.chk,demo.nts)]}));
+      const obs=[];
+      if(demo.obs?.cor)obs.push("Corrective recs provided on-site");
+      if(demo.obs?.rec)obs.push("Error likely to recur");
+      if(demo.obs?.n)obs.push(demo.obs.n);
+      if(obs.length)ch.push(p("Observations: "+obs.join(" | "),{size:18,color:"444444",spacing:{before:60,after:80}}));
+      ch.push(p("",{spacing:{before:60,after:60}}));
+    });
+  });
+
+  // S8-10
+  ch.push(new D.Paragraph({children:[new D.PageBreak()]}));
+  ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),sr("SECTION 8: CONTRACTOR LOTO REVIEW"),...bldRows(["s8"],st.chk,st.nts)]}));
+  if(st.exN.s8)ch.push(p("Notes: "+st.exN.s8,{size:18,color:"444444",spacing:{before:80,after:80}}));
+  ch.push(p("",{spacing:{before:200,after:100}}));
+  ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),sr("SECTION 9: EQUIPMENT & FACILITY WALKTHROUGH"),...bldRows(["s9"],st.chk,st.nts)]}));
+  if(st.exN.s9)ch.push(p("Notes: "+st.exN.s9,{size:18,color:"444444",spacing:{before:80,after:80}}));
+  ch.push(p("",{spacing:{before:200,after:100}}));
+  ch.push(new D.Table({width:{size:CW,type:D.WidthType.DXA},columnWidths:cols,rows:[hr(),sr("SECTION 10: POST-VISIT REPORT REQUIREMENTS"),...bldRows(["s10"],st.chk,st.nts)]}));
+
+  const doc=new D.Document({
+    styles:{default:{document:{run:{font:"Arial",size:22}}}},
+    sections:[{
+      properties:{page:{size:{width:12240,height:15840},margin:{top:1080,right:1080,bottom:1080,left:1080}}},
+      headers:{default:new D.Header({children:[new D.Paragraph({alignment:D.AlignmentType.CENTER,border:{bottom:{style:D.BorderStyle.SINGLE,size:6,color:AC,space:4}},spacing:{after:100},children:[tr("HGS ENGINEERING \u2014 LOTO ASSESSMENT \u2014 FIELD DATA EXPORT",{bold:true,size:16,color:NV})]})]}),
+      footers:{default:new D.Footer({children:[new D.Paragraph({alignment:D.AlignmentType.CENTER,border:{top:{style:D.BorderStyle.SINGLE,size:4,color:AC,space:4}},children:[tr("36C24124A0049 \u2014 VISN 1 LOTO System Support BPA | Confidential",{size:14,color:"888888"})]})]}),
+      children:ch
+    }]
+  });
+  const buf=await D.Packer.toBlob(doc);
+  dlBlob(buf,"LOTO_Assessment_"+(f.name||"Export").replace(/[^a-zA-Z0-9]/g,"_")+"_"+new Date().toISOString().slice(0,10)+".docx");
+}
+
+// ============================================================
+// COLORS & UI COMPONENTS
+// ============================================================
+const C={nv:"#1B3A5C",ac:"#2E75B6",lb:"#D6E4F0",or:"#E8751A",gn:"#2D8B4E",rd:"#C0392B",bg:"#F0F2F5",cd:"#FFFFFF",bd:"#D1D5DB",tp:"#1A1A2E",ts:"#5A6577",tl:"#8895A7"};
+const fm="'Barlow Condensed','Segoe UI',sans-serif";const fb="'Barlow','Segoe UI',sans-serif";
+
+function Modal({title,text,onOk,onNo,okLbl,dng}){
+  return(<div className="modal-overlay" onClick={onNo}><div className="modal-box" onClick={e=>e.stopPropagation()}>
+    <div className="modal-title">{title}</div><div className="modal-text">{text}</div>
+    <div className="modal-btns"><button className="modal-btn cancel" onClick={onNo}>Cancel</button>
+    <button className={"modal-btn "+(dng?"danger":"confirm")} onClick={onOk}>{okLbl||"Confirm"}</button></div>
+  </div></div>);
+}
+function PB({c:ch,t:to}){const p=to>0?Math.round(ch/to*100):0;const co=p===100?C.gn:p>50?C.ac:C.or;
+  return(<div style={{display:"flex",alignItems:"center",gap:8,minWidth:100}}>
+    <div style={{flex:1,height:6,background:"#E5E7EB",borderRadius:3,overflow:"hidden"}}><div style={{width:p+"%",height:"100%",background:co,borderRadius:3,transition:"width 0.3s"}}/></div>
+    <span style={{fontFamily:fm,fontSize:13,color:C.ts,whiteSpace:"nowrap"}}>{ch}/{to}</span></div>);}
+function SH({title,sub,open,onTgl,c,t,tag,tc}){
+  return(<div onClick={onTgl} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",cursor:"pointer",userSelect:"none",background:open?C.nv:C.cd,borderRadius:open?"10px 10px 0 0":10,border:"1px solid "+(open?C.nv:C.bd),transition:"all 0.2s",flexWrap:"wrap",gap:8}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:200}}>
+      <span style={{fontSize:16,color:open?"#FFF":C.nv,transition:"transform 0.2s",transform:open?"rotate(90deg)":"rotate(0deg)",display:"inline-block"}}>{"\u25B6"}</span>
+      <div><div style={{fontFamily:fm,fontWeight:700,fontSize:15,color:open?"#FFF":C.nv,letterSpacing:"0.02em"}}>{title}</div>
+      {sub&&<div style={{fontSize:11,color:open?C.lb:C.ts,marginTop:1}}>{sub}</div>}</div>
+      {tag&&<span style={{fontSize:10,fontWeight:700,fontFamily:fm,padding:"2px 8px",borderRadius:4,background:tc||C.ac,color:"#FFF",letterSpacing:"0.05em",textTransform:"uppercase"}}>{tag}</span>}
+    </div><div style={{minWidth:120}}><PB c={c} t={t}/></div></div>);}
+function SSH({title}){return(<div style={{padding:"10px 14px",background:C.lb,fontFamily:fm,fontWeight:700,fontSize:13,color:C.nv,letterSpacing:"0.02em",borderBottom:"1px solid "+C.bd}}>{title}</div>);}
+function CR({it,idx,chk,onChk,note,onNt}){
+  return(<div style={{display:"flex",borderBottom:"1px solid "+C.bd,background:idx%2===0?"#FAFBFC":C.cd}}>
+    <div style={{width:40,display:"flex",alignItems:"center",justifyContent:"center",borderRight:"1px solid "+C.bd,flexShrink:0}}><input type="checkbox" checked={chk} onChange={onChk}/></div>
+    <div style={{width:32,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:fm,fontSize:12,color:C.ts,borderRight:"1px solid "+C.bd,flexShrink:0}}>{idx+1}</div>
+    <div className="cit" style={{flex:3,padding:"8px 10px",fontSize:13,lineHeight:1.5,color:C.tp,fontFamily:fb,borderRight:"1px solid "+C.bd}}>{it.x}</div>
+    <div className="cref" style={{flex:0.8,padding:"8px 6px",fontSize:11,color:C.ts,fontFamily:fm,borderRight:"1px solid "+C.bd,minWidth:90}}>{it.r}</div>
+    <div style={{flex:1.2,padding:"4px 4px",minWidth:120}}><textarea value={note} onChange={onNt} placeholder="Notes..." style={{width:"100%",height:"100%",minHeight:34,border:"1px solid #E5E7EB",borderRadius:4,padding:"5px 6px",fontSize:12,fontFamily:fb,resize:"vertical",color:C.tp,background:"#FAFBFC"}}/></div></div>);}
+function CT({sk,chk,nts,onChk,onNt}){const d=SD[sk];return(<div><SSH title={d.t}/>{d.i.map((it,i)=>{const k=sk+"_"+i;return <CR key={k} it={it} idx={i} chk={!!chk[k]} onChk={()=>onChk(k)} note={nts[k]||""} onNt={e=>onNt(k,e.target.value)}/>;})}</div>);}
+function NB({lbl,val,onChange}){return(<div style={{padding:14,borderTop:"2px solid "+C.ac}}><label style={{fontFamily:fm,fontWeight:700,fontSize:13,color:C.nv,display:"block",marginBottom:6}}>{lbl}</label>
+  <textarea value={val} onChange={e=>onChange(e.target.value)} placeholder="Enter notes here..." style={{width:"100%",minHeight:70,border:"1px solid "+C.bd,borderRadius:6,padding:"8px 10px",fontSize:13,fontFamily:fb,resize:"vertical",color:C.tp}}/></div>);}
+function IF({lbl,val,onChange,w}){return(<div style={{flex:w||1}}><label style={{display:"block",fontSize:10,fontFamily:fm,fontWeight:600,color:C.ts,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{lbl}</label>
+  <input type="text" value={val||""} onChange={e=>onChange(e.target.value)} style={{width:"100%",padding:"7px 8px",border:"1px solid "+C.bd,borderRadius:6,fontSize:13,fontFamily:fb,color:C.tp,background:"#FAFBFC"}}/></div>);}
+function SIB({inf,onChange}){const s=(k,v)=>onChange({...inf,[k]:v});
+  return(<div className="ig" style={{display:"flex",flexWrap:"wrap",gap:10,padding:"10px 14px",background:C.lb,borderBottom:"1px solid "+C.bd}}>
+    <IF lbl="Shop / Service Line" val={inf.shop} onChange={v=>s("shop",v)} w={2}/><IF lbl="Date" val={inf.date} onChange={v=>s("date",v)}/>
+    <IF lbl="Employee(s)" val={inf.emp} onChange={v=>s("emp",v)} w={2}/><IF lbl="Title" val={inf.title} onChange={v=>s("title",v)}/>
+    <IF lbl="Equipment / Procedure" val={inf.equip} onChange={v=>s("equip",v)} w={3}/></div>);}
+function SII({inf,onChange}){const s=(k,v)=>onChange({...inf,[k]:v});
+  return(<div className="ig" style={{display:"flex",flexWrap:"wrap",gap:10,padding:"10px 14px",background:C.lb,borderBottom:"1px solid "+C.bd}}>
+    <IF lbl="Shop" val={inf.shop} onChange={v=>s("shop",v)} w={2}/><IF lbl="Date" val={inf.date} onChange={v=>s("date",v)}/>
+    <IF lbl="# Authorized" val={inf.nAuth} onChange={v=>s("nAuth",v)}/><IF lbl="Supervisor" val={inf.sup} onChange={v=>s("sup",v)}/>
+    <IF lbl="Gatekeeper" val={inf.gk} onChange={v=>s("gk",v)}/><IF lbl="Person(s) Interviewed" val={inf.per} onChange={v=>s("per",v)}/></div>);}
+function AB({lbl,onClick}){return(<button onClick={onClick} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",border:"2px dashed "+C.ac,borderRadius:8,background:"transparent",color:C.ac,fontFamily:fm,fontWeight:700,fontSize:13,cursor:"pointer"}}><span style={{fontSize:18,lineHeight:1}}>+</span> {lbl}</button>);}
+function XB({onClick}){return(<button onClick={onClick} style={{padding:"3px 8px",border:"1px solid "+C.rd,borderRadius:5,background:"transparent",color:C.rd,fontFamily:fm,fontSize:12,cursor:"pointer",fontWeight:600}}>{"\u2715"}</button>);}
+function cntC(chk,ks){let c=0,t=0;ks.forEach(k=>{SD[k].i.forEach((_,i)=>{t++;if(chk[k+"_"+i])c++;});});return{c,t};}
+function SS({title,sub,sks,chk,nts,onChk,onNt,exN,onExN,exLbl}){const[o,setO]=useState(false);const r=cntC(chk,sks);
+  return(<div style={{marginBottom:12}}><SH title={title} sub={sub} open={o} onTgl={()=>setO(!o)} c={r.c} t={r.t}/>
+    {o&&<div style={{border:"1px solid "+C.bd,borderTop:0,borderRadius:"0 0 10px 10px",overflow:"hidden",background:C.cd}}>
+      {sks.map(k=><CT key={k} sk={k} chk={chk} nts={nts} onChk={onChk} onNt={onNt}/>)}
+      {exN!==undefined&&<NB lbl={exLbl||"Notes"} val={exN} onChange={onExN}/>}</div>}</div>);}
+
+function DI({demo,onUpd,onRm}){const[o,setO]=useState(true);const r=cntC(demo.chk,["s7a","s7b","s7c"]);
+  const lbl=demo.inf.equip||demo.inf.emp||"New Demonstration";
+  return(<div style={{margin:"8px 0",border:"1px solid "+C.bd,borderRadius:8,overflow:"hidden"}}>
+    <div onClick={()=>setO(!o)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#F3F6FA",cursor:"pointer",userSelect:"none"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
+        <span style={{fontSize:13,color:C.ac,transform:o?"rotate(90deg)":"rotate(0deg)",display:"inline-block",transition:"transform 0.2s"}}>{"\u25B6"}</span>
+        <span style={{fontFamily:fm,fontWeight:600,fontSize:13,color:C.nv}}>{lbl}</span></div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><PB c={r.c} t={r.t}/><XB onClick={e=>{e.stopPropagation();onRm();}}/></div></div>
+    {o&&<div><SIB inf={demo.inf} onChange={inf=>onUpd({...demo,inf})}/>
+      {["s7a","s7b","s7c"].map(k=><CT key={k} sk={k} chk={demo.chk} nts={demo.nts}
+        onChk={ck=>onUpd({...demo,chk:{...demo.chk,[ck]:!demo.chk[ck]}})}
+        onNt={(ck,v)=>onUpd({...demo,nts:{...demo.nts,[ck]:v}})}/>)}
+      <div style={{padding:"10px 14px",borderTop:"2px solid "+C.ac}}>
+        <label style={{fontFamily:fm,fontWeight:700,fontSize:13,color:C.nv,display:"block",marginBottom:6}}>Observations</label>
+        <div style={{display:"flex",flexWrap:"wrap",gap:12,marginBottom:8}}>
+          <label style={{fontFamily:fb,fontSize:13,display:"flex",alignItems:"center",gap:5}}>
+            <input type="checkbox" checked={!!demo.obs?.cor} onChange={()=>onUpd({...demo,obs:{...demo.obs,cor:!demo.obs?.cor}})}/> Corrective recs provided on-site</label>
+          <label style={{fontFamily:fb,fontSize:13,display:"flex",alignItems:"center",gap:5}}>
+            <input type="checkbox" checked={!!demo.obs?.rec} onChange={()=>onUpd({...demo,obs:{...demo.obs,rec:!demo.obs?.rec}})}/> Error likely to recur</label></div>
+        <textarea value={demo.obs?.n||""} placeholder="Errors observed, best practices noted..." onChange={e=>onUpd({...demo,obs:{...demo.obs,n:e.target.value}})}
+          style={{width:"100%",minHeight:50,border:"1px solid "+C.bd,borderRadius:6,padding:"8px 10px",fontSize:13,fontFamily:fb,resize:"vertical"}}/></div>
+    </div>}</div>);}
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function App(){
+  const sv=useRef(load());const ini=sv.current||buildDef();
+  const[fac,setFac]=useState(ini.fac);const[chk,setChk]=useState(ini.chk);const[nts,setNts]=useState(ini.nts);
+  const[exN,setExN]=useState(ini.exN);const[s4,setS4]=useState(ini.s4);const[s6,setS6]=useState(ini.s6);
+  const[s7,setS7]=useState(ini.s7);const[os,setOs]=useState(ini.os||{});const[mdl,setMdl]=useState(null);
+
+  useEffect(()=>{const t=setTimeout(()=>{save({fac,chk,nts,exN,s4,s6,s7,os});},400);return()=>clearTimeout(t);},[fac,chk,nts,exN,s4,s6,s7,os]);
+
+  const oCk=useCallback(k=>setChk(p=>({...p,[k]:!p[k]})),[]);
+  const oNt=useCallback((k,v)=>setNts(p=>({...p,[k]:v})),[]);
+  const tgl=id=>setOs(p=>({...p,[id]:!p[id]}));
+  const nwD=()=>({id:uid(),inf:{shop:"",date:"",emp:"",title:"",equip:""},chk:iC(["s7a","s7b","s7c"]),nts:iN(["s7a","s7b","s7c"]),obs:{cor:false,rec:false,n:""}});
+  const gSt=()=>({fac,chk,nts,exN,s4,s6,s7,os});
+
+  const op=useMemo(()=>{let c=0,t=0;
+    ASK.forEach(k=>SD[k].i.forEach((_,i)=>{t++;if(chk[k+"_"+i])c++;}));
+    s4.forEach(inst=>SD.s4a.i.forEach((_,i)=>{t++;if(inst.chk["s4a_"+i])c++;}));
+    s6.forEach(inst=>["s6a","s6b","s6c","s6d"].forEach(k=>SD[k].i.forEach((_,i)=>{t++;if(inst.chk[k+"_"+i])c++;})));
+    s7.forEach(inst=>inst.demos.forEach(d=>["s7a","s7b","s7c"].forEach(k=>SD[k].i.forEach((_,i)=>{t++;if(d.chk[k+"_"+i])c++;}))));
+    return{c,t};},[chk,s4,s6,s7]);
+
+  const doBackup=()=>setMdl({title:"Save Daily Backup",text:"Download a backup file containing all current assessment data to your device.",okLbl:"Save Backup",onOk:()=>{setMdl(null);
+    dlFile(JSON.stringify(gSt(),null,2),"LOTO_Backup_"+(fac.name||"Data").replace(/[^a-zA-Z0-9]/g,"_")+"_"+new Date().toISOString().slice(0,10)+".json","application/json");
+    toast("\u2713 Backup saved",C.gn);},onNo:()=>setMdl(null)});
+
+  const doRestore=()=>setMdl({title:"Restore from Backup",text:"This will REPLACE all current data with data from a backup file. Any current progress will be overwritten.",okLbl:"Choose File",dng:true,
+    onOk:()=>{setMdl(null);const inp=document.getElementById("file-restore");
+      inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{try{const d=JSON.parse(ev.target.result);
+        if(!d.fac||!d.chk){toast("\u2717 Invalid backup","#C0392B");return;}
+        setMdl({title:"Confirm Restore",text:"Loaded: "+(d.fac?.name||"Unknown")+". This will overwrite ALL current data.",okLbl:"Restore Now",dng:true,
+          onOk:()=>{setFac(d.fac);setChk(d.chk);setNts(d.nts);setExN(d.exN);setS4(d.s4);setS6(d.s6);setS7(d.s7);setOs(d.os||{});setMdl(null);toast("\u2713 Restored","#2E75B6");},
+          onNo:()=>setMdl(null)});}catch(er){toast("\u2717 Could not read file","#C0392B");}};rd.readAsText(f);inp.value="";};inp.click();},onNo:()=>setMdl(null)});
+
+  const doExport=()=>setMdl({title:"Export to Word Document",text:"Generate a .docx file with all assessment data \u2014 checks, notes, shop evaluations, and demonstrations \u2014 and download it.",
+    okLbl:"Export to Word",onOk:async()=>{setMdl(null);toast("\u23F3 Generating...","#2E75B6");try{await expWord(gSt());toast("\u2713 Exported","#2D8B4E");}catch(er){console.error(er);toast("\u2717 Export failed","#C0392B");}},onNo:()=>setMdl(null)});
+
+  const doReset=()=>setMdl({title:"\u26A0 Reset All Data",text:"This will PERMANENTLY erase ALL assessment data. This cannot be undone. Consider saving a backup first.",okLbl:"Erase Everything",dng:true,
+    onOk:()=>setMdl({title:"\u26A0 Final Confirmation",text:"Are you absolutely sure? ALL data will be permanently lost.",okLbl:"Yes, Erase All",dng:true,
+      onOk:()=>{localStorage.removeItem(SK);window.location.reload();},onNo:()=>setMdl(null)}),onNo:()=>setMdl(null)});
+
+  // Shop accordion helper
+  function shopAcc(wid,title,sub,insts,setI,ks,rInfo,rCont,nwFn){
+    const aO=os[wid];let tc=0,cc=0;insts.forEach(inst=>ks.forEach(k=>SD[k].i.forEach((_,i)=>{tc++;if(inst.chk[k+"_"+i])cc++;})));
+    return(<div style={{marginBottom:12}}><SH title={title} sub={sub} open={aO} onTgl={()=>tgl(wid)} c={cc} t={tc} tag="Per Shop" tc={C.or}/>
+      {aO&&<div style={{border:"1px solid "+C.bd,borderTop:0,borderRadius:"0 0 10px 10px",padding:14,background:C.cd}}>
+        {insts.map((inst,idx)=>{const iO=os[inst.id];const r=cntC(inst.chk,ks);
+          return(<div key={inst.id} style={{marginBottom:8}}>
+            <div onClick={()=>tgl(inst.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:iO?"#EDF2F8":"#F9FAFB",borderRadius:iO?"8px 8px 0 0":8,border:"1px solid "+C.bd,cursor:"pointer",userSelect:"none"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:13,color:C.ac,transform:iO?"rotate(90deg)":"rotate(0deg)",display:"inline-block",transition:"transform 0.2s"}}>{"\u25B6"}</span>
+                <span style={{fontFamily:fm,fontWeight:600,fontSize:14,color:C.nv}}>{inst.inf?.shop||inst.shop||("Shop "+(idx+1))}</span></div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}><PB c={r.c} t={r.t}/><XB onClick={e=>{e.stopPropagation();setI(p=>p.filter(x=>x.id!==inst.id));}}/></div></div>
+            {iO&&<div style={{border:"1px solid "+C.bd,borderTop:0,borderRadius:"0 0 8px 8px",overflow:"hidden"}}>
+              {rInfo(inst)}{rCont(inst)}<NB lbl="Notes" val={inst.exN} onChange={v=>setI(p=>p.map(x=>x.id===inst.id?{...x,exN:v}:x))}/></div>}</div>);})}
+        <div style={{marginTop:10}}><AB lbl="Add Shop" onClick={()=>setI(p=>[...p,nwFn()])}/></div></div>}</div>);}
+
+  return(<div style={{fontFamily:fb,background:C.bg,minHeight:"100vh"}}>
+    {mdl&&<Modal title={mdl.title} text={mdl.text} onOk={mdl.onOk} onNo={mdl.onNo} okLbl={mdl.okLbl} dng={mdl.dng}/>}
+
+    {/* HEADER */}
+    <div style={{background:"linear-gradient(135deg, "+C.nv+" 0%, #0D2137 100%)",padding:"14px 0",position:"sticky",top:0,zIndex:100}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+          <div><div style={{fontFamily:fm,fontWeight:700,fontSize:20,color:"#FFF",letterSpacing:"0.03em"}}>LOTO PROGRAM ASSESSMENT</div>
+            <div style={{fontFamily:fm,fontSize:11,color:C.lb,letterSpacing:"0.05em",marginTop:1}}>36C24124A0049 — VISN 1</div></div>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}} className="tbw">
+            <div style={{textAlign:"right",marginRight:4}}>
+              <div style={{fontFamily:fm,fontSize:10,color:C.lb,textTransform:"uppercase",letterSpacing:"0.05em"}}>Progress</div>
+              <div style={{fontFamily:fm,fontSize:18,fontWeight:700,color:"#FFF"}}>{op.t>0?Math.round(op.c/op.t*100):0}%</div></div>
+            <div style={{width:80}}><PB c={op.c} t={op.t}/></div>
+            <button className="tb" onClick={doBackup}>{"\uD83D\uDCBE"} Backup</button>
+            <button className="tb" onClick={doRestore}>{"\uD83D\uDCC2"} Restore</button>
+            <button className="tb" onClick={doExport}>{"\uD83D\uDCC4"} Word</button>
+            <button className="tb dng" onClick={doReset}>{"\uD83D\uDDD1"} Reset</button>
+          </div></div></div></div>
+
+    <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 60px"}}>
+      {/* FACILITY */}
+      <div style={{background:C.cd,borderRadius:10,border:"1px solid "+C.bd,padding:16,marginBottom:16}}>
+        <div style={{fontFamily:fm,fontWeight:700,fontSize:14,color:C.nv,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10}}>Facility Information</div>
+        <div className="ig" style={{display:"flex",flexWrap:"wrap",gap:10}}>
+          <IF lbl="Facility" val={fac.name} onChange={v=>setFac(p=>({...p,name:v}))} w={3}/>
+          <IF lbl="Date(s)" val={fac.dates} onChange={v=>setFac(p=>({...p,dates:v}))}/>
+          <IF lbl="Assessor" val={fac.assessor} onChange={v=>setFac(p=>({...p,assessor:v}))} w={3}/><div style={{flex:1}}/>
+          <IF lbl="Facility POC" val={fac.poc} onChange={v=>setFac(p=>({...p,poc:v}))} w={2}/>
+          <IF lbl="POC Phone" val={fac.pocPh} onChange={v=>setFac(p=>({...p,pocPh:v}))}/>
+          <IF lbl="Safety Manager" val={fac.sMgr} onChange={v=>setFac(p=>({...p,sMgr:v}))}/>
+          <IF lbl="Safety Mgr Phone" val={fac.sMgrPh} onChange={v=>setFac(p=>({...p,sMgrPh:v}))}/></div></div>
+
+      <SS title="Section 2: MCP/SOP Review" sks={["s2a","s2b","s2c","s2d","s2e","s2f"]} chk={chk} nts={nts} onChk={oCk} onNt={oNt}/>
+      <SS title="Section 3: Inventory & Document Control" sks={["s3"]} chk={chk} nts={nts} onChk={oCk} onNt={oNt}/>
+
+      {shopAcc("s4w","Section 4: Procedure Evaluation","Per-shop equipment sampling",s4,setS4,["s4a"],
+        inst=><SIB inf={inst.inf} onChange={inf=>setS4(p=>p.map(x=>x.id===inst.id?{...x,inf}:x))}/>,
+        inst=><CT sk="s4a" chk={inst.chk} nts={inst.nts} onChk={k=>setS4(p=>p.map(x=>x.id===inst.id?{...x,chk:{...x.chk,[k]:!x.chk[k]}}:x))} onNt={(k,v)=>setS4(p=>p.map(x=>x.id===inst.id?{...x,nts:{...x.nts,[k]:v}}:x))}/>,
+        ()=>({id:uid(),inf:{shop:"",date:"",emp:"",title:"",equip:""},chk:iC(["s4a"]),nts:iN(["s4a"]),exN:""}))}
+
+      <SS title="Section 5: LOTO Training Audit" sks={["s5"]} chk={chk} nts={nts} onChk={oCk} onNt={oNt} exN={exN.s5} onExN={v=>setExN(p=>({...p,s5:v}))} exLbl="Training Notes"/>
+
+      {shopAcc("s6w","Section 6: Shop-Level LOTO Interview","Per-shop questionnaire",s6,setS6,["s6a","s6b","s6c","s6d"],
+        inst=><SII inf={inst.inf} onChange={inf=>setS6(p=>p.map(x=>x.id===inst.id?{...x,inf}:x))}/>,
+        inst=><>{["s6a","s6b","s6c","s6d"].map(k=><CT key={k} sk={k} chk={inst.chk} nts={inst.nts} onChk={ck=>setS6(p=>p.map(x=>x.id===inst.id?{...x,chk:{...x.chk,[ck]:!x.chk[ck]}}:x))} onNt={(ck,v)=>setS6(p=>p.map(x=>x.id===inst.id?{...x,nts:{...x.nts,[ck]:v}}:x))}/>)}</>,
+        ()=>({id:uid(),inf:{shop:"",date:"",nAuth:"",sup:"",gk:"",per:""},chk:iC(["s6a","s6b","s6c","s6d"]),nts:iN(["s6a","s6b","s6c","s6d"]),exN:""}))}
+
+      {/* S7: KSA + nested demos */}
+      {(()=>{const aO=os["s7w"];let tc=0,cc=0;
+        s7.forEach(inst=>inst.demos.forEach(d=>["s7a","s7b","s7c"].forEach(k=>SD[k].i.forEach((_,i)=>{tc++;if(d.chk[k+"_"+i])cc++;}))));
+        return(<div style={{marginBottom:12}}><SH title="Section 7: Employee KSA Assessment" sub="Per-shop with nested equipment demonstrations" open={aO} onTgl={()=>tgl("s7w")} c={cc} t={tc} tag="Per Shop + Demo" tc={C.or}/>
+          {aO&&<div style={{border:"1px solid "+C.bd,borderTop:0,borderRadius:"0 0 10px 10px",padding:14,background:C.cd}}>
+            {s7.map((inst,idx)=>{const iO=os[inst.id];let sc=0,st=0;
+              inst.demos.forEach(d=>["s7a","s7b","s7c"].forEach(k=>SD[k].i.forEach((_,i)=>{st++;if(d.chk[k+"_"+i])sc++;})));
+              return(<div key={inst.id} style={{marginBottom:8}}>
+                <div onClick={()=>tgl(inst.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:iO?"#EDF2F8":"#F9FAFB",borderRadius:iO?"8px 8px 0 0":8,border:"1px solid "+C.bd,cursor:"pointer",userSelect:"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:13,color:C.ac,transform:iO?"rotate(90deg)":"rotate(0deg)",display:"inline-block",transition:"transform 0.2s"}}>{"\u25B6"}</span>
+                    <span style={{fontFamily:fm,fontWeight:600,fontSize:14,color:C.nv}}>{inst.shop||("Shop "+(idx+1))}</span>
+                    <span style={{fontFamily:fm,fontSize:12,color:C.ts}}>{"\u2014 "+inst.demos.length+" demo"+(inst.demos.length!==1?"s":"")}</span></div>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}><PB c={sc} t={st}/><XB onClick={e=>{e.stopPropagation();setS7(p=>p.filter(x=>x.id!==inst.id));}}/></div></div>
+                {iO&&<div style={{border:"1px solid "+C.bd,borderTop:0,borderRadius:"0 0 8px 8px",padding:10}}>
+                  <div style={{marginBottom:8}}><IF lbl="Shop Name" val={inst.shop} onChange={v=>setS7(p=>p.map(x=>x.id===inst.id?{...x,shop:v}:x))}/></div>
+                  {inst.demos.map(demo=><DI key={demo.id} demo={demo}
+                    onUpd={u=>setS7(p=>p.map(x=>x.id===inst.id?{...x,demos:x.demos.map(d=>d.id===demo.id?u:d)}:x))}
+                    onRm={()=>setS7(p=>p.map(x=>x.id===inst.id?{...x,demos:x.demos.filter(d=>d.id!==demo.id)}:x))}/>)}
+                  <div style={{marginTop:8}}><AB lbl="Add Equipment Demonstration" onClick={()=>setS7(p=>p.map(x=>x.id===inst.id?{...x,demos:[...x.demos,nwD()]}:x))}/></div>
+                </div>}</div>);})}
+            <div style={{marginTop:10}}><AB lbl="Add Shop" onClick={()=>setS7(p=>[...p,{id:uid(),shop:"",demos:[]}])}/></div></div>}</div>);})()}
+
+      <SS title="Section 8: Contractor LOTO Review" sks={["s8"]} chk={chk} nts={nts} onChk={oCk} onNt={oNt} exN={exN.s8} onExN={v=>setExN(p=>({...p,s8:v}))} exLbl="Contractor Notes"/>
+      <SS title="Section 9: Equipment & Facility Walkthrough" sks={["s9"]} chk={chk} nts={nts} onChk={oCk} onNt={oNt} exN={exN.s9} onExN={v=>setExN(p=>({...p,s9:v}))} exLbl="Walkthrough Notes"/>
+      <SS title="Section 10: Post-Visit Report Requirements" sks={["s10"]} chk={chk} nts={nts} onChk={oCk} onNt={oNt}/>
+
+      <div style={{marginTop:28,padding:"14px 0",borderTop:"2px solid "+C.bd,textAlign:"center"}}>
+        <div style={{fontFamily:fm,fontSize:12,color:C.tl}}>HGS Engineering, Inc. — 36C24124A0049 — VISN 1 LOTO System Support BPA — Confidential</div>
+        <div style={{fontFamily:fm,fontSize:11,color:C.tl,marginTop:4}}>Data auto-saves to this device. Use Backup button to protect against data loss.</div></div>
+    </div></div>);}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
