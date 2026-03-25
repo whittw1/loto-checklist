@@ -1893,13 +1893,13 @@ async function runCombinedExport() {
     ];
 
     // Style definitions matching original info sheet
-    const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D2B0' } }; // olive/tan
-    const headerFont = { bold: true, size: 10, name: 'Arial' };
-    const labelFill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECE8D4' } }; // lighter tan for source labels
-    const labelFont  = { size: 9, name: 'Arial' };
-    const dataFont   = { size: 10, name: 'Arial' };
-    const boldData   = { bold: true, size: 10, name: 'Arial' };
-    const thinBorder = { style: 'thin', color: { argb: 'FF999999' } };
+    const topHeaderFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6DCE4' } }; // light blue-gray (row 1)
+    const labelFill     = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }; // light yellow (label rows)
+    const headerFont = { bold: true, size: 10, name: 'Calibri' };
+    const labelFont  = { size: 10, name: 'Calibri' };
+    const dataFont   = { size: 10, name: 'Calibri' };
+    const boldData   = { bold: true, size: 10, name: 'Calibri' };
+    const thinBorder = { style: 'thin', color: { argb: 'FF000000' } };
     const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
 
     function applyRow(row, font, fill, borders) {
@@ -1913,9 +1913,9 @@ async function runCombinedExport() {
       });
     }
 
-    // Title row
+    // Title row (light blue-gray fill like original)
     const titleRow = ws.addRow(['Energy Sources','Source Devices','','Location','Photo #','','','','','Page #']);
-    applyRow(titleRow, { bold: true, size: 11, name: 'Arial' }, null, null);
+    applyRow(titleRow, { bold: true, size: 10, name: 'Calibri' }, topHeaderFill, allBorders);
 
     // Blank separator
     ws.addRow([]);
@@ -1925,9 +1925,9 @@ async function runCombinedExport() {
       const pageNum  = ei + 1;
       const location = [entry.equipBuilding, entry.equipRoom].filter(Boolean).join(' ');
 
-      // Equipment header row (bold + fill)
+      // Equipment header row (light yellow fill like original)
       const eqHeaderRow = ws.addRow(['Equipment ID/Name','','','Location','Main Photo','Details','','Data Plate Photo','EE Number Photo','Page #']);
-      applyRow(eqHeaderRow, headerFont, headerFill, allBorders);
+      applyRow(eqHeaderRow, headerFont, labelFill, allBorders);
       const eqHdrNum = eqHeaderRow.number;
       ws.mergeCells(eqHdrNum, 1, eqHdrNum, 2); // A:B merge
 
