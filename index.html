@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-title" content="LOTO Collector">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <title>LOTO Field Collector v4.0</title>
 <script>
 if ('serviceWorker' in navigator) {
@@ -1762,7 +1762,7 @@ async function runCombinedExport() {
   }
 
   if (allEntries.length === 0) { showToast('Nothing to export', true); return; }
-  if (typeof XLSX === 'undefined') { showToast('SheetJS not loaded — check connection', true); return; }
+  if (typeof ExcelJS === 'undefined') { showToast('ExcelJS not loaded — check connection', true); return; }
 
   showToast('Building export…', false);
 
@@ -1881,52 +1881,124 @@ async function runCombinedExport() {
     });
   });
 
-  // ---- PASS 3: build Info Sheet xlsx ----
-  if (typeof XLSX !== 'undefined') {
-    const aoa = [];
-    aoa.push(['Energy Sources','Source Devices',null,'Location','Photo #',null,null,null,null,'Page #']);
+  // ---- PASS 3: build Info Sheet xlsx (ExcelJS with formatting) ----
+  if (typeof ExcelJS !== 'undefined') {
+    const ewb = new ExcelJS.Workbook();
+    const ws = ewb.addWorksheet('InfoSheetForm');
+
+    // Column widths matching original
+    ws.columns = [
+      { width: 28 }, { width: 22 }, { width: 16 }, { width: 26 }, { width: 18 },
+      { width: 14 }, { width: 10 }, { width: 22 }, { width: 18 }, { width: 8 }
+    ];
+
+    // Style definitions matching original info sheet
+    const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D2B0' } }; // olive/tan
+    const headerFont = { bold: true, size: 10, name: 'Arial' };
+    const labelFill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECE8D4' } }; // lighter tan for source labels
+    const labelFont  = { size: 9, name: 'Arial' };
+    const dataFont   = { size: 10, name: 'Arial' };
+    const boldData   = { bold: true, size: 10, name: 'Arial' };
+    const thinBorder = { style: 'thin', color: { argb: 'FF999999' } };
+    const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+
+    function applyRow(row, font, fill, borders) {
+      row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+        if (colNum <= 10) {
+          cell.font = font;
+          if (fill) cell.fill = fill;
+          if (borders) cell.border = borders;
+          cell.alignment = { vertical: 'middle', wrapText: true };
+        }
+      });
+    }
+
+    // Title row
+    const titleRow = ws.addRow(['Energy Sources','Source Devices','','Location','Photo #','','','','','Page #']);
+    applyRow(titleRow, { bold: true, size: 11, name: 'Arial' }, null, null);
+
+    // Blank separator
+    ws.addRow([]);
 
     allEntries.forEach((entry, ei) => {
       const map = entryMaps[ei];
       const pageNum  = ei + 1;
       const location = [entry.equipBuilding, entry.equipRoom].filter(Boolean).join(' ');
 
-      aoa.push(['Equipment ID/Name',null,null,'Location','Main Photo','Details',null,'Data Plate Photo','EE Number Photo','Page #']);
-      aoa.push([entry.equipName || null, null, null, location, map.mainH, entry.equipType || null, null, map.dpH, map.eeH, pageNum]);
+      // Equipment header row (bold + fill)
+      const eqHeaderRow = ws.addRow(['Equipment ID/Name','','','Location','Main Photo','Details','','Data Plate Photo','EE Number Photo','Page #']);
+      applyRow(eqHeaderRow, headerFont, headerFill, allBorders);
+      const eqHdrNum = eqHeaderRow.number;
+      ws.mergeCells(eqHdrNum, 1, eqHdrNum, 2); // A:B merge
 
+      // Equipment data row
+      const eqDataRow = ws.addRow([entry.equipName || '', '', '', location, map.mainH || '', entry.equipType || '', '', map.dpH || '', map.eeH || '', pageNum]);
+      applyRow(eqDataRow, dataFont, null, allBorders);
+      eqDataRow.getCell(10).font = boldData;
+      const eqDataNum = eqDataRow.number;
+      ws.mergeCells(eqDataNum, 1, eqDataNum, 2); // A:B merge
+
+      // Merge C across header+data (like original: quantity header spans 2 rows)
+      ws.mergeCells(eqHdrNum, 3, eqDataNum, 3);
+
+      // 10 energy source rows
       for (let s = 0; s < 10; s++) {
         const n   = s + 1;
         const src = entry.sources[s] || null;
         const srcH = src ? (map.sourceHs[s] || null) : null;
-        aoa.push([`Energy Source #${n}`,` Source #${n} Device`,'Total Device Quantity',` Source #${n} Location`,`Source #${n} Photo`,null,'Dup Photo',`Source #${n} Verification`,`Verification Photo #${n}`,null]);
-        aoa.push([
-          src ? (src.energySource || null) : null,
-          src ? (src.deviceType   || null) : null,
-          src ? (src.quantity     || null) : null,
-          src ? (src.location     || null) : null,
-          srcH, src ? (src.detail || null) : null,
-          src ? (src.duplicate    || null) : null,
-          src ? (src.verification || null) : null,
-          null, null
+
+        // Source label row (light fill)
+        const srcLabelRow = ws.addRow([
+          `Energy Source #${n}`, ` Source #${n} Device`, 'Total Device Quantity',
+          ` Source #${n} Location`, `Source #${n} Photo`, '', 'Dup Photo',
+          `Source #${n} Verification`, `Verification Photo #${n}`, ''
         ]);
+        applyRow(srcLabelRow, labelFont, labelFill, allBorders);
+
+        // Source data row
+        const srcDataRow = ws.addRow([
+          src ? (src.energySource || '') : '',
+          src ? (src.deviceType   || '') : '',
+          src ? (src.quantity     || '') : '',
+          src ? (src.location     || '') : '',
+          srcH || '',
+          src ? (src.detail || '') : '',
+          src ? (src.duplicate || '') : '',
+          src ? (src.verification || '') : '',
+          '', ''
+        ]);
+        applyRow(srcDataRow, dataFont, null, allBorders);
       }
 
-      aoa.push(['Tied to Equipment',null,'Other Hazards',null,'Stored Energy',null,null,'Template',null,null]);
-      aoa.push([
-        entry.tiedTo ? `${entry.tiedTo}${entry.tiedToName ? ' — ' + entry.tiedToName : ''}` : null,
-        null,null,null,null,null,null, entry.template || null, null, null
+      // Tied to / Other Hazards / Stored Energy / Template label row
+      const metaLabelRow = ws.addRow(['Tied to Equipment','','Other Hazards','','Stored Energy','','','Template','','']);
+      applyRow(metaLabelRow, labelFont, labelFill, allBorders);
+
+      // Meta data row
+      const metaDataRow = ws.addRow([
+        entry.tiedTo ? `${entry.tiedTo}${entry.tiedToName ? ' — ' + entry.tiedToName : ''}` : '',
+        '', '', '', '', '', '', entry.template || '', '', ''
       ]);
-      aoa.push(['Notes:',null,null,null,null,null,null,null,null,null]);
-      aoa.push([entry.notes || null,null,null,null,null,null,null,null,null,null]);
+      applyRow(metaDataRow, dataFont, null, allBorders);
+
+      // Notes label row
+      const notesLabelRow = ws.addRow(['Notes:', '', '', '', '', '', '', '', '', '']);
+      applyRow(notesLabelRow, boldData, null, allBorders);
+
+      // Notes data row (merged across B:I like original)
+      const notesDataRow = ws.addRow([entry.notes || '', '', '', '', '', '', '', '', '', '']);
+      applyRow(notesDataRow, dataFont, null, allBorders);
+      const notesNum = notesDataRow.number;
+      ws.mergeCells(notesNum, 2, notesNum, 9);
+
+      // Blank separator between equipment entries
+      ws.addRow([]);
     });
 
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{wch:28},{wch:22},{wch:14},{wch:26},{wch:16},{wch:14},{wch:10},{wch:22},{wch:16},{wch:8}];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'InfoSheetForm');
-    const xlsxBytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    // Generate xlsx bytes
+    const xlsxBuffer = await ewb.xlsx.writeBuffer();
     const dateStamp = getDateStamp();
-    zip.file('Information_Sheet_' + dateStamp + '.xlsx', xlsxBytes);
+    zip.file('Information_Sheet_' + dateStamp + '.xlsx', xlsxBuffer);
   }
 
   // ---- Add CSV + download ZIP ----
