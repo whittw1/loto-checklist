@@ -988,7 +988,7 @@ function addSource() {
   const index = sources.length;
   sources.push({
     energySource: '', deviceType: '', quantity: 1, location: '',
-    duplicate: 'No', verification: '', collapsed: false
+    duplicate: 'No', verification: '', detail: '', collapsed: false
   });
   renderSources();
   setTimeout(() => {
@@ -1017,6 +1017,7 @@ function renderSources() {
             <strong>${src.energySource || 'Empty source'}</strong>${autoBadge}
             ${src.deviceType ? ' &mdash; ' + src.deviceType : ''}
             ${src.location ? ' &mdash; ' + src.location : ''}
+            ${src.detail ? ' <span style="color:var(--accent);font-weight:600;font-family:monospace;">(' + src.detail + ')</span>' : ''}
           </div>
           ${hasThumbnail ? `<img class="source-summary-photo" src="${photoData.thumbnail}">` : ''}
           <span class="edit-icon">Edit</span>
@@ -1084,6 +1085,12 @@ function renderSources() {
               <select onchange="updateSource(${i},'duplicate',this.value)">
                 ${DATA.duplicateOptions.map(d => `<option value="${d}" ${src.duplicate===d?'selected':''}>${d}</option>`).join('')}
               </select>
+            </div>
+            <div class="form-group">
+              <label>Detail</label>
+              <input type="text" value="${src.detail||''}" placeholder="e.g. TL, BR, LR"
+                oninput="updateSource(${i},'detail',this.value)"
+                style="text-transform:uppercase;font-family:monospace;max-width:120px;">
             </div>
           </div>
           ${isNoPhoto ? `<div style="padding:8px 0;color:var(--text-dim);font-size:13px;">${noPhotoMessage}</div>` : `
@@ -1856,7 +1863,7 @@ async function runCombinedExport() {
   }
 
   // ---- PASS 2: build CSV ----
-  let csv = 'Equipment Type,Equipment Name,Room,Building,Template,Tied To,Tied To Equipment Name,Notes,Source #,Energy Source,Device Type,Quantity,Location,Duplicate,Verification,Photo Filename,Main Photo Filename,DataPlate Photo Filename,EE Photo Filename\n';
+  let csv = 'Equipment Type,Equipment Name,Room,Building,Template,Tied To,Tied To Equipment Name,Notes,Source #,Energy Source,Device Type,Quantity,Location,Duplicate,Verification,Photo Filename,Detail,Main Photo Filename,DataPlate Photo Filename,EE Photo Filename\n';
 
   allEntries.forEach((entry, ei) => {
     const map = entryMaps[ei];
@@ -1868,7 +1875,7 @@ async function runCombinedExport() {
         quote(entry.tiedToName || ''), quote(entry.notes || ''),
         i + 1, quote(src.energySource), quote(src.deviceType), src.quantity,
         quote(src.location), src.duplicate, quote(src.verification),
-        quote(map.sourceHs[i] || ''), quote(map.mainH || ''),
+        quote(map.sourceHs[i] || ''), quote(src.detail || ''), quote(map.mainH || ''),
         quote(map.dpH || ''), quote(map.eeH || '')
       ].join(',') + '\n';
     });
@@ -1897,7 +1904,7 @@ async function runCombinedExport() {
           src ? (src.deviceType   || null) : null,
           src ? (src.quantity     || null) : null,
           src ? (src.location     || null) : null,
-          srcH, null,
+          srcH, src ? (src.detail || null) : null,
           src ? (src.duplicate    || null) : null,
           src ? (src.verification || null) : null,
           null, null
