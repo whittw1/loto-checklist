@@ -1086,15 +1086,9 @@ function renderSources() {
                 ${DATA.duplicateOptions.map(d => `<option value="${d}" ${src.duplicate===d?'selected':''}>${d}</option>`).join('')}
               </select>
             </div>
-            <div class="form-group">
-              <label>Detail</label>
-              <input type="text" value="${src.detail||''}" placeholder="e.g. TL, BR, LR"
-                oninput="updateSource(${i},'detail',this.value)"
-                style="text-transform:uppercase;font-family:monospace;max-width:120px;">
-            </div>
           </div>
           ${isNoPhoto ? `<div style="padding:8px 0;color:var(--text-dim);font-size:13px;">${noPhotoMessage}</div>` : `
-          <div class="photo-section">
+          <div class="photo-section" style="display:flex;gap:16px;align-items:flex-start;">
             <div>
               <label style="font-size:11px;font-weight:600;color:var(--text-label);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Source Photo</label>
               <div class="photo-capture ${photos['source_'+i] && photos['source_'+i].thumbnail ?'has-photo':''}" onclick="takePhoto('source_${i}')" id="photo_source_${i}" style="position:relative;">
@@ -1113,6 +1107,12 @@ function renderSources() {
                 `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;text-align:center;">
                   &#128247; ${new Date(photos['source_'+i].timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}
                 </div>` : ''}
+            </div>
+            <div style="flex:0 0 auto;">
+              <label style="font-size:11px;font-weight:600;color:var(--text-label);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Detail</label>
+              <input type="text" value="${src.detail||''}" placeholder="LR, TL…"
+                oninput="updateSource(${i},'detail',this.value)"
+                style="text-transform:uppercase;font-family:monospace;width:80px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--input-bg);color:var(--text-main);font-size:14px;text-align:center;">
             </div>
           </div>`}
         </div>
