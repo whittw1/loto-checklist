@@ -1,4 +1,4 @@
-const CACHE_NAME = 'loto-collector-v4.1';
+const CACHE_NAME = 'loto-collector-v4.2';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -23,9 +23,14 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch — serve from cache first, fall back to network
+// Fetch — network first, fall back to cache (ensures updates are always picked up)
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    fetch(event.request).then(response => {
+      // Clone and cache the fresh response
+      const clone = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });
