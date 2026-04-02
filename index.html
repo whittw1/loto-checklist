@@ -37,10 +37,10 @@ input[type="checkbox"]{width:18px;height:18px;cursor:pointer;accent-color:#2E75B
 <script type="text/babel">
 const {useState,useCallback,useMemo,useEffect,useRef}=React;
 const SD=window.SD;
-const SK="loto_v3";
+const SK="loto_program_assessment_2026";
 function toast(m,c){const e=document.getElementById("toast");if(e){e.textContent=m;e.style.background=c||"#2D8B4E";e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1500);}}
 function sv(s){try{localStorage.setItem(SK,JSON.stringify(s));toast("\u2713 Saved");}catch(e){}}
-function ld(){try{const r=localStorage.getItem(SK);if(r)return JSON.parse(r);}catch(e){}return null;}
+function ld(){try{var r=localStorage.getItem(SK);if(r)return JSON.parse(r);r=localStorage.getItem("loto_v3");if(r){var d=JSON.parse(r);if(d&&d.fac){localStorage.setItem(SK,r);return d;}}}catch(e){}return null;}
 function dlF(c,n,t){const b=new Blob([c],{type:t});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
 function dlB(b,n){const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);}
 
